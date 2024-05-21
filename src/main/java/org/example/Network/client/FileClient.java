@@ -22,7 +22,7 @@ public class FileClient {
 
 
     /**
-     * 从服务器下载文件
+     * 从服务器下载文件,这个方法已经过期不要使用也不要删，可能有用，是在固定的java运行的同文件夹中找文件并下载
      *
      * @param fileName       要下载的文件名
      * @param localSavePath  本地保存路径
@@ -186,12 +186,6 @@ public class FileClient {
         }
         return "";
     }
-
-
-
-
-
-
     /**
      * 上传文件到服务器
      *
@@ -306,18 +300,16 @@ public class FileClient {
         return null;
     }
 
-
-
-
     /**
-     * 下载多个文件并解压缩到指定目录
+     * 下载单个文件并解压缩到指定目录
      *
-     * @param filePaths     服务器上的文件路径列表，用逗号分隔
+     * @param filePath     服务器上的文件路径,注意！！！这里的路径是从src开始的相对于项目的路径写死了，不能用其他路径
      * @param downloadDir   本地保存路径
      * @return true 如果下载成功, 否则 false
      */
-    public static boolean downloadMultipleFiles(String filePaths, String downloadDir) {
-        String fileURL = SERVER_URL + "/downloadMultiple?files=" + URLEncoder.encode(filePaths, StandardCharsets.UTF_8);
+    public static boolean downloadSingleFile(String filePath, String downloadDir) {
+        filePath = "C:/Users/USER/Desktop/ServerLinkedDatabase/"+filePath;
+        String fileURL = SERVER_URL + "/downloadSingle?file=" + URLEncoder.encode(filePath, StandardCharsets.UTF_8);
 
         try {
             URL url = new URL(fileURL);
@@ -325,11 +317,9 @@ public class FileClient {
             int responseCode = httpConn.getResponseCode();
 
             if (responseCode == HttpURLConnection.HTTP_OK) {
-                Path tempZipFile = Files.createTempFile("download-", ".zip");
-
-                // 读取服务器的ZIP文件
+                Path outputFile = Paths.get(downloadDir, Paths.get(filePath).getFileName().toString());
                 try (InputStream inputStream = httpConn.getInputStream();
-                     FileOutputStream outputStream = new FileOutputStream(tempZipFile.toFile())) {
+                     FileOutputStream outputStream = new FileOutputStream(outputFile.toFile())) {
 
                     byte[] buffer = new byte[4096];
                     int bytesRead;
@@ -337,35 +327,35 @@ public class FileClient {
                         outputStream.write(buffer, 0, bytesRead);
                     }
                 }
-
-                // 解压ZIP文件到指定目录
-                try (ZipInputStream zis = new ZipInputStream(new FileInputStream(tempZipFile.toFile()))) {
-                    ZipEntry zipEntry;
-                    byte[] buffer = new byte[4096]; // 在解压时也需要定义 buffer
-                    while ((zipEntry = zis.getNextEntry()) != null) {
-                        Path outputPath = Paths.get(downloadDir, zipEntry.getName());
-                        Files.createDirectories(outputPath.getParent());
-
-                        try (OutputStream os = Files.newOutputStream(outputPath)) {
-                            int length;
-                            while ((length = zis.read(buffer)) > 0) {
-                                os.write(buffer, 0, length);
-                            }
-                        }
-                        zis.closeEntry();
-                    }
-                }
-
-                // 删除临时文件
-                Files.delete(tempZipFile);
+                System.out.println("Success download file to local dir path: "+ downloadDir);
                 return true;
             } else {
-                System.out.println("Failed to download files. Server responded with: " + responseCode);
+                System.out.println("Failed to download file. Server responded with: " + responseCode);
                 return false;
             }
         } catch (IOException e) {
             e.printStackTrace();
             return false;
+        }
+    }
+
+
+
+
+
+
+    /**
+     * 根据对应的用户给定的文件名称ImageName不是文件的文件名下载所有同名文件到指定的本地保存文件夹中
+     *
+     * @param imageName 想下载的文件名
+     * @param downloadDir   本地保存路径
+     * @return true 如果下载成功, 否则 false
+     */
+    public static void downloadAccordingImageName(String imageName, String downloadDir){
+        String text = userSearchByName(imageName);
+        String[] downLoadPaths = text.split(" ");
+        for (int i = 0; i < downLoadPaths.length; i++) {
+            downloadSingleFile(downLoadPaths[i], downloadDir);
         }
     }
 
@@ -407,7 +397,11 @@ public class FileClient {
 //        uploadFile("C:\\Users\\admin\\Desktop\\2.png","src/main/java/com/example/network/Server/Images/5.png");
 //
 //        upLoadFilesToServer(1, "sensei", "C:\\\\Users\\\\admin\\\\Desktop\\\\2.png", "Hina为师的大可爱！！！！！" );
-        System.out.println(userSearchByName("Hina"));
+//        System.out.println(userSearchByName("Hina"));
+//        String downloadText = "src/main/java/com/example/network/Server/Images/5.png";
+//        downloadSingleFile(downloadText, "src/main/java/org/example/Network/client");
+        downloadAccordingImageName("Hina", "src/main/java/org/example/Network/client");
+
 
     }
 

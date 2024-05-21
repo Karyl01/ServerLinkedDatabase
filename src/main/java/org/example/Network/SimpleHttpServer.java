@@ -28,7 +28,7 @@ public class SimpleHttpServer {
         server.createContext("/register", new RegisterHandler());
         server.createContext("/userUploadImage", new UserUploadImageHandler());
         server.createContext("/userSearchByName", new UserSearchByNameHandler());
-        server.createContext("/downloadMultiple", new MultipleFileDownloadHandler());
+        server.createContext("/downloadSingle", new SingleFileDownloadHandler());
         server.setExecutor(null); // creates a default executor
         server.start();
         System.out.println("Server started on port " + PORT);
@@ -276,69 +276,40 @@ public class SimpleHttpServer {
 
 
 
-    //用户根据输入的一个地址串进行分割之后通过服务类发送给客户端
-    static class MultipleFileDownloadHandler implements HttpHandler {
+    //用户根据输入的一个服务器上文件的地址之后通过服务类发送给客户端
+    static class SingleFileDownloadHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             if ("GET".equals(exchange.getRequestMethod())) {
                 String query = exchange.getRequestURI().getQuery();
-                if (query == null || !query.startsWith("files=")) {
+                if (query == null || !query.startsWith("file=")) {
                     exchange.sendResponseHeaders(400, -1); // Bad Request
                     return;
                 }
 
-                String filesParam = URLDecoder.decode(query.substring(6), "UTF-8");
-                String[] filePaths = filesParam.split(",");
+                String fileParam = URLDecoder.decode(query.substring(5), "UTF-8");
+                Path filePath = Paths.get(fileParam);
 
-                // 创建临时的ZIP文件
-                Path tempZipFile = Files.createTempFile("download-", ".zip");
-                try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(tempZipFile.toFile()))) {
-                    for (String filePath : filePaths) {
-                        Path path = Paths.get(filePath);
-                        if (Files.exists(path)) {
-                            try (InputStream is = Files.newInputStream(path)) {
-                                ZipEntry zipEntry = new ZipEntry(path.getFileName().toString());
-                                zos.putNextEntry(zipEntry);
+                if (Files.exists(filePath)) {
+                    exchange.getResponseHeaders().add("Content-Type", "application/octet-stream");
+                    exchange.sendResponseHeaders(200, Files.size(filePath));
 
-                                byte[] buffer = new byte[1024];
-                                int length;
-                                while ((length = is.read(buffer)) > 0) {
-                                    zos.write(buffer, 0, length);
-                                }
-                                zos.closeEntry();
-                            }
+                    try (OutputStream os = exchange.getResponseBody();
+                         InputStream is = Files.newInputStream(filePath)) {
+                        byte[] buffer = new byte[1024];
+                        int length;
+                        while ((length = is.read(buffer)) > 0) {
+                            os.write(buffer, 0, length);
                         }
                     }
+                } else {
+                    exchange.sendResponseHeaders(404, -1); // Not Found
                 }
-
-                // 发送ZIP文件
-                exchange.getResponseHeaders().add("Content-Type", "application/zip");
-                exchange.sendResponseHeaders(200, Files.size(tempZipFile));
-
-                try (OutputStream os = exchange.getResponseBody();
-                     InputStream is = Files.newInputStream(tempZipFile)) {
-                    byte[] buffer = new byte[1024];
-                    int length;
-                    while ((length = is.read(buffer)) > 0) {
-                        os.write(buffer, 0, length);
-                    }
-                }
-
-                // 删除临时文件
-                Files.delete(tempZipFile);
             } else {
                 exchange.sendResponseHeaders(405, -1); // Method Not Allowed
             }
         }
     }
-
-
-
-
-
-
-
-
 
 
 
