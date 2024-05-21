@@ -29,6 +29,7 @@ public class SimpleHttpServer {
         server.createContext("/userUploadImage", new UserUploadImageHandler());
         server.createContext("/userSearchByName", new UserSearchByNameHandler());
         server.createContext("/downloadSingle", new SingleFileDownloadHandler());
+        server.createContext("/testConnection", new ConnectionTestHandler());
         server.setExecutor(null); // creates a default executor
         server.start();
         System.out.println("Server started on port " + PORT);
@@ -310,6 +311,23 @@ public class SimpleHttpServer {
             }
         }
     }
+
+
+    static class ConnectionTestHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("GET".equals(exchange.getRequestMethod())) {
+                String response = "Connection Successful";
+                exchange.sendResponseHeaders(200, response.length());
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(response.getBytes());
+                }
+            } else {
+                exchange.sendResponseHeaders(405, -1); // Method Not Allowed
+            }
+        }
+    }
+
 
 
 

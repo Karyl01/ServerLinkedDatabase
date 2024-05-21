@@ -360,6 +360,31 @@ public class FileClient {
     }
 
 
+    /**
+     * 测试与服务器的连接
+     *
+     * @return true 如果连接成功, 否则 false
+     */
+    public static boolean testConnection() {
+        String testURL = SERVER_URL + "/testConnection";
+
+        try {
+            URL url = new URL(testURL);
+            HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+            httpConn.setRequestMethod("GET");
+            int responseCode = httpConn.getResponseCode();
+
+            return responseCode == HttpURLConnection.HTTP_OK;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+
+
+
 
 
 
@@ -400,9 +425,9 @@ public class FileClient {
 //        System.out.println(userSearchByName("Hina"));
 //        String downloadText = "src/main/java/com/example/network/Server/Images/5.png";
 //        downloadSingleFile(downloadText, "src/main/java/org/example/Network/client");
-        downloadAccordingImageName("Hina", "src/main/java/org/example/Network/client");
+//        downloadAccordingImageName("Hina", "src/main/java/org/example/Network/client");
 
-
+        System.out.println(testConnection());
     }
 
 
