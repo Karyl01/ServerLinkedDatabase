@@ -6,6 +6,8 @@ import com.sun.net.httpserver.HttpServer;
 
 import java.io.*;
 import java.net.InetSocketAddress;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -15,14 +17,16 @@ import java.util.Map;
 import java.util.HashMap;
 
 public class SimpleHttpServer {
+    private static final int PORT = 8080;
     public static void main(String[] args) throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
+        HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
         server.createContext("/upload", new UploadHandler());
         server.createContext("/download", new DownloadHandler());
         server.createContext("/register", new RegisterHandler());
+        server.createContext("/userUploadImage", new UserUploadImageHandler()); // 新增的处理程序
         server.setExecutor(null); // creates a default executor
         server.start();
-        System.out.println("Server started on port 8080");
+        System.out.println("Server started on port " + PORT);
     }
 
 
@@ -69,8 +73,8 @@ public class SimpleHttpServer {
                     long imageSize = Files.size(filePath);
 
                     // Record file information in database
-                    boolean result = DatabaseUtil.sendUserImage(userId, userPassword, fileName, (int) imageSize, imageType);
-                    if (result) {
+                    String result = DatabaseUtil.sendUserImage(userId, userPassword, fileName, (int) imageSize, imageType);
+                    if (result != null) {
                         String response = "File uploaded and recorded successfully.";
                         exchange.sendResponseHeaders(200, response.getBytes().length);
                         OutputStream os = exchange.getResponseBody();
@@ -96,6 +100,8 @@ public class SimpleHttpServer {
                 exchange.sendResponseHeaders(405, -1); // Method Not Allowed
             }
         }
+
+
 
         private Map<String, String> parseMultipartFormData(HttpExchange exchange) throws IOException {
             Map<String, String> formData = new HashMap<>();
@@ -252,4 +258,83 @@ public class SimpleHttpServer {
         }
         return result;
     }
+
+
+    static class UserUploadImageHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("POST".equals(exchange.getRequestMethod())) {
+                try {
+                    // 读取请求数据
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(exchange.getRequestBody()));
+                    String requestData = reader.readLine();
+
+                    // 解析请求数据
+                    String[] params = requestData.split("&");
+                    int userId = Integer.parseInt(params[0].split("=")[1]);
+                    String userPassword = URLDecoder.decode(params[1].split("=")[1], StandardCharsets.UTF_8);
+                    String localImagePath = URLDecoder.decode(params[2].split("=")[1], StandardCharsets.UTF_8);
+
+                    // 在此处调用 FileServer 中的逻辑处理
+                    String imagePath = handleUserUploadImage(userId, userPassword, localImagePath);
+
+                    // 返回结果给客户端
+                    OutputStream outputStream = exchange.getResponseBody();
+                    outputStream.write(imagePath.getBytes());
+                    outputStream.flush();
+
+                    // 关闭流
+                    outputStream.close();
+                    reader.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1); // Internal Server Error
+                }
+            } else {
+                exchange.sendResponseHeaders(405, -1); // Method Not Allowed
+            }
+        }
+
+        private String handleUserUploadImage(int userId, String userPassword, String localImagePath) {
+            try {
+                // 读取本地图片文件信息并上传
+                File imageFile = new File(localImagePath);
+                String imageName = imageFile.getName();
+                byte[] fileBytes = Files.readAllBytes(imageFile.toPath());
+                int imageSize = fileBytes.length;
+                String imageType = imageName.substring(imageName.lastIndexOf('.') + 1);
+
+                // 调用 sendUserImage 方法
+                String imagePath = DatabaseUtil.sendUserImage(userId, userPassword, imageName, imageSize, imageType);
+                return imagePath != null ? imagePath : ""; // 返回服务器返回的图片路径
+            } catch (IOException | SQLException e) {
+                e.printStackTrace();
+                return "";
+            }
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
+
+

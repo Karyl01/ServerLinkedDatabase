@@ -165,99 +165,72 @@ public class FileClient {
 
 
     /**
-     * 发送user的信息用来确认身份，之后上传一个本地在localImagePath路径的图像文件
+     * 发送user的信息用来确认身份，之后上传一个本地在localImagePath路径的图像文件的相关信息
      *
-     * @param userId 发送图片的user的Id
-     * @param userPassword user的密码
-     * @param localImagePath 本地需要上传图片的路径
-     * @return true 如果上传图片成功则返回true, 否则 false
+     * @param userId         发送图片的user的Id
+     * @param userPassword   user的密码
+     * @param localImagePath 本地需要上传图片的信息的路径
+     * @return 如果上传图片成功则返回服务器返回的字符串，否则返回空字符串
      */
-    public static boolean userUploadImage(int userId, String userPassword, String localImagePath) {
-        File imageFile = new File(localImagePath);
-        if (!imageFile.exists() || !imageFile.isFile()) {
-            System.out.println("File not found: " + localImagePath);
-            return false;
-        }
-
-        String boundary = "Boundary-" + System.currentTimeMillis();
-        HttpURLConnection connection = null;
-        DataOutputStream outputStream = null;
-        BufferedReader reader = null;
+    public static String userUploadImage(int userId, String userPassword, String localImagePath) {
+        String targetUrl = SERVER_URL + "/userUploadImage"; // 服务器端处理上传的URL
+        File file = new File(localImagePath);
 
         try {
-            URL url = new URL("http://localhost:8080/upload");
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setDoOutput(true);
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+            // 构建表单数据
+            String formData = "userId=" + userId
+                    + "&userPassword=" + URLEncoder.encode(userPassword, StandardCharsets.UTF_8)
+                    + "&imageName=" + URLEncoder.encode(file.getName(), StandardCharsets.UTF_8)
+                    + "&imageSize=" + file.length()
+                    + "&imageType=" + getImageType(file);
 
-            outputStream = new DataOutputStream(connection.getOutputStream());
+            // 打开连接
+            URL url = new URL(targetUrl);
+            HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
 
-            // Write user credentials
-            outputStream.writeBytes("--" + boundary + "\r\n");
-            outputStream.writeBytes("Content-Disposition: form-data; name=\"userId\"\r\n\r\n");
-            outputStream.writeBytes(String.valueOf(userId) + "\r\n");
+            // 设置请求方法为POST
+            httpConn.setDoOutput(true);
+            httpConn.setRequestMethod("POST");
 
-            outputStream.writeBytes("--" + boundary + "\r\n");
-            outputStream.writeBytes("Content-Disposition: form-data; name=\"userPassword\"\r\n\r\n");
-            outputStream.writeBytes(userPassword + "\r\n");
+            // 设置请求头
+            httpConn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+            httpConn.setRequestProperty("Content-Length", String.valueOf(formData.getBytes().length));
 
-            // Write file data
-            outputStream.writeBytes("--" + boundary + "\r\n");
-            outputStream.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"" + imageFile.getName() + "\"\r\n");
-            outputStream.writeBytes("Content-Type: " + "application/octet-stream" + "\r\n\r\n");
-
-            FileInputStream fileInputStream = new FileInputStream(imageFile);
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
-            }
-            fileInputStream.close();
-
-            outputStream.writeBytes("\r\n--" + boundary + "--\r\n");
+            // 发送表单数据
+            OutputStream outputStream = httpConn.getOutputStream();
+            outputStream.write(formData.getBytes());
             outputStream.flush();
             outputStream.close();
 
-            // Get response from server
-            int responseCode = connection.getResponseCode();
-            if (responseCode == 200) {
-                reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                String responseLine;
-                StringBuilder response = new StringBuilder();
-                while ((responseLine = reader.readLine()) != null) {
-                    response.append(responseLine);
-                }
+            // 获取响应
+            int responseCode = httpConn.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                // 读取服务器返回的字符串（存储路径或错误信息）
+                BufferedReader reader = new BufferedReader(new InputStreamReader(httpConn.getInputStream()));
+                String response = reader.readLine();
                 reader.close();
-                System.out.println("Server response: " + response.toString());
-                return true;
+
+                System.out.println("Server response: " + response);
+                return response;
             } else {
-                System.out.println("Upload failed with response code: " + responseCode);
-                return false;
+                System.out.println("Failed to upload image. Server responded with: " + responseCode);
+                return "";
             }
         } catch (IOException e) {
             e.printStackTrace();
-            return false;
-        } finally {
-            if (outputStream != null) {
-                try {
-                    outputStream.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            if (connection != null) {
-                connection.disconnect();
-            }
+            return "";
         }
     }
+
+    private static String getImageType(File file) {
+        String fileName = file.getName();
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex != -1 && dotIndex < fileName.length() - 1) {
+            return fileName.substring(dotIndex + 1).toLowerCase();
+        }
+        return "";
+    }
+
 
 
 
@@ -276,7 +249,8 @@ public class FileClient {
 //        System.out.println("Download success: " + downloadSuccess);
 
 //        registerUser("s", "000000");
-        userUploadImage(1, "0", "C:\\Users\\admin\\Desktop\\1.png");
+//        userUploadImage(1, "0", "C:\\Users\\admin\\Desktop\\1.png");
+        userUploadImage(1,"sensei", "C:\\Users\\admin\\Desktop\\1.png");
     }
 
 

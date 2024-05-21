@@ -280,11 +280,11 @@ public class DatabaseUtil {
      * @return true if the image was successfully sent and associated with the user, false otherwise
      * @throws SQLException if a database access error occurs
      */
-    public static boolean sendUserImage(int userId, String userPassword, String imageName, int imageSize, String imageType) throws SQLException {
+    public static String sendUserImage(int userId, String userPassword, String imageName, int imageSize, String imageType) throws SQLException {
         // Check if user exists
         if (!userExists(userId, userPassword)) {
             System.out.println("User does not exist.");
-            return false;
+            return "";
         }
 
         Connection conn = null;
@@ -339,7 +339,7 @@ public class DatabaseUtil {
             conn.commit();
 
             System.out.println("Image sent and associated with user successfully.");
-            return true;
+            return imagePath;
         } catch (SQLException e) {
             if (conn != null) {
                 conn.rollback(); // Rollback transaction on error
@@ -372,8 +372,8 @@ public class DatabaseUtil {
 //        initDatabase();
         System.out.println("if successfully create a user: "+  insertUser("sensei", "sensei"));
 //        System.out.println("User exist: "+userExists("sensei", "sensei"));
-        boolean result = sendUserImage(1, "sensei", "exampleImage", 12345, "jpg");
-        System.out.println("Image sent: " + result);
+        String result = sendUserImage(1, "sensei", "exampleImage", 12345, "jpg");
+        System.out.println("Image sent Path: " + result);
 
     }
 
