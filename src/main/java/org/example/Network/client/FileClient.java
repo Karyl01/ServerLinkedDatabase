@@ -5,6 +5,14 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.nio.file.Paths;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 
 public class FileClient {
 
@@ -262,14 +270,14 @@ public class FileClient {
 
 
     /**
-     * 用户根据图片名称查询图片Id的方法
+     * 用户根据图片名称查询图片存储地址的方法，中间用，隔开
      * @param imageName 用户想要指定的上传图片的名字
-     * @return String，所有查询到的图片的id用“,”分割
+     * @return String，所有查询到的图片的存储路径用“,”分割
      */
     public static String userSearchByName(String imageName) {
         try {
             // 构建请求URL
-            URL url = new URL(SERVER_URL + "?imageName=" + imageName);
+            URL url = new URL(SERVER_URL + "/userSearchByName?imageName=" + imageName);
 
             // 打开连接
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -296,6 +304,69 @@ public class FileClient {
             e.printStackTrace();
         }
         return null;
+    }
+
+
+
+
+    /**
+     * 下载多个文件并解压缩到指定目录
+     *
+     * @param filePaths     服务器上的文件路径列表，用逗号分隔
+     * @param downloadDir   本地保存路径
+     * @return true 如果下载成功, 否则 false
+     */
+    public static boolean downloadMultipleFiles(String filePaths, String downloadDir) {
+        String fileURL = SERVER_URL + "/downloadMultiple?files=" + URLEncoder.encode(filePaths, StandardCharsets.UTF_8);
+
+        try {
+            URL url = new URL(fileURL);
+            HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+            int responseCode = httpConn.getResponseCode();
+
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                Path tempZipFile = Files.createTempFile("download-", ".zip");
+
+                // 读取服务器的ZIP文件
+                try (InputStream inputStream = httpConn.getInputStream();
+                     FileOutputStream outputStream = new FileOutputStream(tempZipFile.toFile())) {
+
+                    byte[] buffer = new byte[4096];
+                    int bytesRead;
+                    while ((bytesRead = inputStream.read(buffer)) != -1) {
+                        outputStream.write(buffer, 0, bytesRead);
+                    }
+                }
+
+                // 解压ZIP文件到指定目录
+                try (ZipInputStream zis = new ZipInputStream(new FileInputStream(tempZipFile.toFile()))) {
+                    ZipEntry zipEntry;
+                    byte[] buffer = new byte[4096]; // 在解压时也需要定义 buffer
+                    while ((zipEntry = zis.getNextEntry()) != null) {
+                        Path outputPath = Paths.get(downloadDir, zipEntry.getName());
+                        Files.createDirectories(outputPath.getParent());
+
+                        try (OutputStream os = Files.newOutputStream(outputPath)) {
+                            int length;
+                            while ((length = zis.read(buffer)) > 0) {
+                                os.write(buffer, 0, length);
+                            }
+                        }
+                        zis.closeEntry();
+                    }
+                }
+
+                // 删除临时文件
+                Files.delete(tempZipFile);
+                return true;
+            } else {
+                System.out.println("Failed to download files. Server responded with: " + responseCode);
+                return false;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
 
@@ -336,14 +407,9 @@ public class FileClient {
 //        uploadFile("C:\\Users\\admin\\Desktop\\2.png","src/main/java/com/example/network/Server/Images/5.png");
 //
 //        upLoadFilesToServer(1, "sensei", "C:\\\\Users\\\\admin\\\\Desktop\\\\2.png", "Hina为师的大可爱！！！！！" );
-        userSearchByName("Hina");
+        System.out.println(userSearchByName("Hina"));
+
     }
-
-
-
-
-
-
 
 
 

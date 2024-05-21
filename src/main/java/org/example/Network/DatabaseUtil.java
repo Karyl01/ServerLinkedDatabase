@@ -365,9 +365,9 @@ public class DatabaseUtil {
      * @return a list of image IDs with the given name
      * @throws SQLException if a database access error occurs
      */
-    public static List<Integer> findImagesByName(String name) throws SQLException {
-        List<Integer> imageIds = new ArrayList<>();
-        String query = "SELECT ImageId FROM Images WHERE ImageName = ?";
+    public static List<String> findImagesByName(String name) throws SQLException {
+        List<String> imagePaths = new ArrayList<>();
+        String query = "SELECT ImagePath FROM Images WHERE ImageName = ?";
 
         try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
              PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -375,8 +375,8 @@ public class DatabaseUtil {
 
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    int imageId = rs.getInt("ImageId");
-                    imageIds.add(imageId);
+                    String imagePath = rs.getString("ImagePath");
+                    imagePaths.add(imagePath);
                 }
             }
         } catch (SQLException e) {
@@ -384,8 +384,9 @@ public class DatabaseUtil {
             throw e;
         }
 
-        return imageIds;
+        return imagePaths;
     }
+
 
 
 
@@ -411,7 +412,7 @@ public class DatabaseUtil {
 //        String result = sendUserImage(1, "sensei", "exampleImage", 12345, "jpg");
 //        System.out.println("Image sent Path: " + result);
 
-        List<Integer> resultInts = findImagesByName("exampleImage");
+        List<String> resultInts = findImagesByName("exampleImage");
         for (int i = 0; i < resultInts.size(); i++) {
             System.out.print(resultInts.get(i)+" ");
         }
