@@ -170,9 +170,10 @@ public class FileClient {
      * @param userId         发送图片的user的Id
      * @param userPassword   user的密码
      * @param localImagePath 本地需要上传图片的信息的路径
+     * @param ImageName 用户想要指定的上传图片的名字
      * @return 如果上传图片成功则返回服务器返回的字符串，否则返回空字符串
      */
-    public static String userUploadImage(int userId, String userPassword, String localImagePath) {
+    public static String userUploadImage(int userId, String userPassword, String localImagePath,String ImageName) {
         String targetUrl = SERVER_URL + "/userUploadImage"; // 服务器端处理上传的URL
         File file = new File(localImagePath);
 
@@ -180,7 +181,7 @@ public class FileClient {
             // 构建表单数据
             String formData = "userId=" + userId
                     + "&userPassword=" + URLEncoder.encode(userPassword, StandardCharsets.UTF_8)
-                    + "&imageName=" + URLEncoder.encode(file.getName(), StandardCharsets.UTF_8)
+                    + "&imageName=" + ImageName
                     + "&imageSize=" + file.length()
                     + "&imageType=" + getImageType(file);
 
@@ -221,7 +222,6 @@ public class FileClient {
             return "";
         }
     }
-
     private static String getImageType(File file) {
         String fileName = file.getName();
         int dotIndex = fileName.lastIndexOf('.');
@@ -234,6 +234,40 @@ public class FileClient {
 
 
 
+
+    /**
+     * 发送user的信息用来确认身份，之后上传一个本地在localImagePath路径的图像文件的相关信息
+     *
+     * @param localFilePath    发送文件的本地路径
+     * @param serverFilePath   在服务器端想要把这个文件存在什么地方的指定路径
+     * @return boolean 成功是true
+     */
+    public static boolean uploadFile(String localFilePath, String serverFilePath) {
+        try {
+            File file = new File(localFilePath);
+            FileInputStream fis = new FileInputStream(file);
+            URL url = new URL("http://localhost:8080/upload?path=" + serverFilePath);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setDoOutput(true);
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/octet-stream");
+            connection.setRequestProperty("Content-Length", String.valueOf(file.length()));
+
+            try (OutputStream os = connection.getOutputStream()) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = fis.read(buffer)) != -1) {
+                    os.write(buffer, 0, bytesRead);
+                }
+            }
+
+            int responseCode = connection.getResponseCode();
+            return responseCode == 200;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 
 
 
@@ -250,7 +284,9 @@ public class FileClient {
 
 //        registerUser("s", "000000");
 //        userUploadImage(1, "0", "C:\\Users\\admin\\Desktop\\1.png");
-        userUploadImage(1,"sensei", "C:\\Users\\admin\\Desktop\\1.png");
+//        userUploadImage(1,"sensei", "C:\\Users\\admin\\Desktop\\1.png");
+        System.out.println("User upload image should be stored at: "+ userUploadImage(1,"sensei", "C:\\Users\\admin\\Desktop\\2.png", "Hina"));
+
     }
 
 
