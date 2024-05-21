@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 
 public class FileClient {
 
-    private static final String SERVER_URL = "https://cfc1-2001-da8-201d-1102-1dd3-a1b7-e709-cae7.ngrok-free.app";
+    private static final String SERVER_URL = "https://b791-2001-da8-201d-1102-1dd3-a1b7-e709-cae7.ngrok-free.app";
 
 
 
@@ -164,23 +164,119 @@ public class FileClient {
     }
 
 
+    /**
+     * 发送user的信息用来确认身份，之后上传一个本地在localImagePath路径的图像文件
+     *
+     * @param userId 发送图片的user的Id
+     * @param userPassword user的密码
+     * @param localImagePath 本地需要上传图片的路径
+     * @return true 如果上传图片成功则返回true, 否则 false
+     */
+    public static boolean userUploadImage(int userId, String userPassword, String localImagePath) {
+        File imageFile = new File(localImagePath);
+        if (!imageFile.exists() || !imageFile.isFile()) {
+            System.out.println("File not found: " + localImagePath);
+            return false;
+        }
+
+        String boundary = "Boundary-" + System.currentTimeMillis();
+        HttpURLConnection connection = null;
+        DataOutputStream outputStream = null;
+        BufferedReader reader = null;
+
+        try {
+            URL url = new URL("http://localhost:8080/upload");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setDoOutput(true);
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+
+            outputStream = new DataOutputStream(connection.getOutputStream());
+
+            // Write user credentials
+            outputStream.writeBytes("--" + boundary + "\r\n");
+            outputStream.writeBytes("Content-Disposition: form-data; name=\"userId\"\r\n\r\n");
+            outputStream.writeBytes(String.valueOf(userId) + "\r\n");
+
+            outputStream.writeBytes("--" + boundary + "\r\n");
+            outputStream.writeBytes("Content-Disposition: form-data; name=\"userPassword\"\r\n\r\n");
+            outputStream.writeBytes(userPassword + "\r\n");
+
+            // Write file data
+            outputStream.writeBytes("--" + boundary + "\r\n");
+            outputStream.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"" + imageFile.getName() + "\"\r\n");
+            outputStream.writeBytes("Content-Type: " + "application/octet-stream" + "\r\n\r\n");
+
+            FileInputStream fileInputStream = new FileInputStream(imageFile);
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+            fileInputStream.close();
+
+            outputStream.writeBytes("\r\n--" + boundary + "--\r\n");
+            outputStream.flush();
+            outputStream.close();
+
+            // Get response from server
+            int responseCode = connection.getResponseCode();
+            if (responseCode == 200) {
+                reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                String responseLine;
+                StringBuilder response = new StringBuilder();
+                while ((responseLine = reader.readLine()) != null) {
+                    response.append(responseLine);
+                }
+                reader.close();
+                System.out.println("Server response: " + response.toString());
+                return true;
+            } else {
+                System.out.println("Upload failed with response code: " + responseCode);
+                return false;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        } finally {
+            if (outputStream != null) {
+                try {
+                    outputStream.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+
 
 
 
 
     public static void main(String[] args) {
-        // 示例用法
-        String uploadFilePath = "C:\\Users\\admin\\Desktop\\2.png"; // 本地图片路径
-        String downloadFileName = "uploaded_1.jpg"; // 要下载的文件名
-        String downloadSavePath = "C:\\Users\\admin\\Desktop\\" + downloadFileName; // 本地保存路径
+//        String uploadFilePath = "C:\\Users\\admin\\Desktop\\2.png"; // 本地图片路径
+//        String downloadFileName = "uploaded_1.jpg"; // 要下载的文件名
+//        String downloadSavePath = "C:\\Users\\admin\\Desktop\\" + downloadFileName; // 本地保存路径
+//        // 上传文件
+//        boolean uploadSuccess = uploadFile(uploadFilePath);
+//        System.out.println("Upload success: " + uploadSuccess);
+//        // 下载文件
+//        boolean downloadSuccess = downloadFile(downloadFileName, downloadSavePath);
+//        System.out.println("Download success: " + downloadSuccess);
 
-        // 上传文件
-        boolean uploadSuccess = uploadFile(uploadFilePath);
-        System.out.println("Upload success: " + uploadSuccess);
-
-        // 下载文件
-        boolean downloadSuccess = downloadFile(downloadFileName, downloadSavePath);
-        System.out.println("Download success: " + downloadSuccess);
+//        registerUser("s", "000000");
+        userUploadImage(1, "0", "C:\\Users\\admin\\Desktop\\1.png");
     }
 
 

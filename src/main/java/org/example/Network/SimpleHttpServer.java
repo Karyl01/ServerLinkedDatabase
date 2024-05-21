@@ -1,5 +1,4 @@
 package org.example.Network;
-
 import org.example.Network.DatabaseUtil;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
@@ -7,7 +6,11 @@ import com.sun.net.httpserver.HttpServer;
 
 import java.io.*;
 import java.net.InetSocketAddress;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.SQLException;
+import java.util.Base64;
 import java.util.Map;
 import java.util.HashMap;
 
@@ -22,34 +25,124 @@ public class SimpleHttpServer {
         System.out.println("Server started on port 8080");
     }
 
+
     static class UploadHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             if ("POST".equals(exchange.getRequestMethod())) {
-                // 获取上传的文件流
-                InputStream is = exchange.getRequestBody();
-                FileOutputStream fos = new FileOutputStream("uploaded_1.jpg");
+                // Parse multipart form data
+                Map<String, String> formData = parseMultipartFormData(exchange);
+                String userIdStr = formData.get("userId");
+                String userPassword = formData.get("userPassword");
+                String fileName = formData.get("fileName");
+                byte[] fileBytes = Base64.getDecoder().decode(formData.get("fileBytes"));
 
-                byte[] buffer = new byte[1024];
-                int bytesRead;
-                while ((bytesRead = is.read(buffer)) != -1) {
-                    fos.write(buffer, 0, bytesRead);
+                if (userIdStr == null || userPassword == null || fileName == null || fileBytes == null) {
+                    exchange.sendResponseHeaders(400, -1); // Bad Request
+                    return;
                 }
 
-                fos.close();
-                is.close();
+                int userId = Integer.parseInt(userIdStr);
 
-                String response = "File uploaded successfully.";
-                exchange.sendResponseHeaders(200, response.getBytes().length);
-                OutputStream os = exchange.getResponseBody();
-                os.write(response.getBytes());
-                os.close();
+                // Define cache file path
+                Path cacheDir = Paths.get("src/main/java/org/example/Network/ImageCache");
+                if (!Files.exists(cacheDir)) {
+                    Files.createDirectories(cacheDir);
+                }
+                Path filePath = cacheDir.resolve(fileName);
+
+                try {
+                    if (!DatabaseUtil.userExists(userId, userPassword)) {
+                        String response = "User does not exist.";
+                        exchange.sendResponseHeaders(403, response.getBytes().length);
+                        OutputStream os = exchange.getResponseBody();
+                        os.write(response.getBytes());
+                        os.close();
+                        return;
+                    }
+
+                    // Save file to cache directory
+                    Files.write(filePath, fileBytes);
+
+                    // Get file metadata
+                    String imageType = getFileExtension(fileName);
+                    long imageSize = Files.size(filePath);
+
+                    // Record file information in database
+                    boolean result = DatabaseUtil.sendUserImage(userId, userPassword, fileName, (int) imageSize, imageType);
+                    if (result) {
+                        String response = "File uploaded and recorded successfully.";
+                        exchange.sendResponseHeaders(200, response.getBytes().length);
+                        OutputStream os = exchange.getResponseBody();
+                        os.write(response.getBytes());
+                        os.close();
+                    } else {
+                        // If database operation fails, delete the cache file
+                        Files.delete(filePath);
+                        exchange.sendResponseHeaders(500, -1); // Internal Server Error
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                    // If exception occurs, delete the cache file
+                    Files.delete(filePath);
+                    exchange.sendResponseHeaders(500, -1); // Internal Server Error
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    // If exception occurs, delete the cache file
+                    Files.delete(filePath);
+                    exchange.sendResponseHeaders(500, -1); // Internal Server Error
+                }
             } else {
                 exchange.sendResponseHeaders(405, -1); // Method Not Allowed
             }
         }
-    }
 
+        private Map<String, String> parseMultipartFormData(HttpExchange exchange) throws IOException {
+            Map<String, String> formData = new HashMap<>();
+            InputStream is = exchange.getRequestBody();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is, "utf-8"));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
+            }
+            String body = sb.toString();
+            String[] parts = body.split("--");
+
+            for (String part : parts) {
+                if (part.contains("Content-Disposition: form-data")) {
+                    String[] lines = part.split("\r\n");
+                    String name = null;
+                    String value = null;
+                    for (String l : lines) {
+                        if (l.contains("name=\"")) {
+                            int start = l.indexOf("name=\"") + 6;
+                            int end = l.indexOf("\"", start);
+                            name = l.substring(start, end);
+                        } else if (!l.isEmpty() && !l.contains("Content-Disposition") && !l.contains("Content-Type")) {
+                            value = l;
+                        }
+                    }
+                    if (name != null && value != null) {
+                        if (name.equals("file")) {
+                            formData.put("fileBytes", value);
+                        } else {
+                            formData.put(name, value);
+                        }
+                    }
+                }
+            }
+            return formData;
+        }
+
+        private String getFileExtension(String fileName) {
+            int lastIndexOfDot = fileName.lastIndexOf('.');
+            if (lastIndexOfDot > 0) {
+                return fileName.substring(lastIndexOfDot + 1);
+            }
+            return "";
+        }
+    }
     static class DownloadHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
