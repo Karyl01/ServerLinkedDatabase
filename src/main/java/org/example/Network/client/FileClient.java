@@ -14,60 +14,6 @@ public class FileClient {
 
 
     /**
-     * 上传文件到服务器
-     *
-     * @param filePath 本地文件路径
-     * @return true 如果上传成功, 否则 false
-     */
-    public static boolean uploadFile(String filePath) {
-        String targetUrl = SERVER_URL + "/upload";
-        File file = new File(filePath);
-
-        try {
-            // 打开连接
-            URL url = new URL(targetUrl);
-            HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
-
-            // 设置请求方法为POST
-            httpConn.setDoOutput(true);
-            httpConn.setRequestMethod("POST");
-
-            // 设置请求头
-            httpConn.setRequestProperty("Content-Type", "application/octet-stream");
-            httpConn.setRequestProperty("Content-Length", String.valueOf(file.length()));
-
-            // 发送文件
-            FileInputStream fileInputStream = new FileInputStream(file);
-            OutputStream outputStream = httpConn.getOutputStream();
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-
-            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
-            }
-
-            outputStream.close();
-            fileInputStream.close();
-
-            // 获取响应
-            int responseCode = httpConn.getResponseCode();
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                System.out.println("File uploaded successfully.");
-                return true;
-            } else {
-                System.out.println("Failed to upload file. Server responded with: " + responseCode);
-                return false;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-
-
-
-    /**
      * 从服务器下载文件
      *
      * @param fileName       要下载的文件名
@@ -164,6 +110,8 @@ public class FileClient {
     }
 
 
+
+
     /**
      * 发送user的信息用来确认身份，之后上传一个本地在localImagePath路径的图像文件的相关信息
      *
@@ -173,7 +121,7 @@ public class FileClient {
      * @param ImageName 用户想要指定的上传图片的名字
      * @return 如果上传图片成功则返回服务器返回的字符串，否则返回空字符串
      */
-    public static String userUploadImage(int userId, String userPassword, String localImagePath,String ImageName) {
+    private static String userUploadImage(int userId, String userPassword, String localImagePath,String ImageName) {
         String targetUrl = SERVER_URL + "/userUploadImage"; // 服务器端处理上传的URL
         File file = new File(localImagePath);
 
@@ -235,39 +183,138 @@ public class FileClient {
 
 
 
-    /**
-     * 发送user的信息用来确认身份，之后上传一个本地在localImagePath路径的图像文件的相关信息
-     *
-     * @param localFilePath    发送文件的本地路径
-     * @param serverFilePath   在服务器端想要把这个文件存在什么地方的指定路径
-     * @return boolean 成功是true
-     */
-    public static boolean uploadFile(String localFilePath, String serverFilePath) {
-        try {
-            File file = new File(localFilePath);
-            FileInputStream fis = new FileInputStream(file);
-            URL url = new URL("http://localhost:8080/upload?path=" + serverFilePath);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setDoOutput(true);
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Content-Type", "application/octet-stream");
-            connection.setRequestProperty("Content-Length", String.valueOf(file.length()));
 
-            try (OutputStream os = connection.getOutputStream()) {
-                byte[] buffer = new byte[4096];
-                int bytesRead;
-                while ((bytesRead = fis.read(buffer)) != -1) {
-                    os.write(buffer, 0, bytesRead);
-                }
+    /**
+     * 上传文件到服务器
+     *
+     * @param localFilePath  本地文件路径
+     * @param serverFilePath 想要存在服务器的位置的路径
+     * @return true 如果上传成功, 否则 false
+     */
+    private static boolean uploadFile(String localFilePath, String serverFilePath) {
+        String targetUrl = SERVER_URL + "/upload?path=" + URLEncoder.encode(serverFilePath, StandardCharsets.UTF_8);
+        File file = new File(localFilePath);
+
+        try {
+            // 打开连接
+            URL url = new URL(targetUrl);
+            HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+
+            // 设置请求方法为POST
+            httpConn.setDoOutput(true);
+            httpConn.setRequestMethod("POST");
+
+            // 设置请求头
+            httpConn.setRequestProperty("Content-Type", "application/octet-stream");
+            httpConn.setRequestProperty("Content-Length", String.valueOf(file.length()));
+
+            // 发送文件
+            FileInputStream fileInputStream = new FileInputStream(file);
+            OutputStream outputStream = httpConn.getOutputStream();
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+
+            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
             }
 
-            int responseCode = connection.getResponseCode();
-            return responseCode == 200;
+            outputStream.close();
+            fileInputStream.close();
+
+            // 获取响应
+            int responseCode = httpConn.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                System.out.println("File uploaded successfully.");
+                return true;
+            } else {
+                System.out.println("Failed to upload file. Server responded with: " + responseCode);
+                return false;
+            }
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
     }
+
+
+
+
+
+
+
+
+
+
+    /**
+     * 上传本地的文件到服务器的合并方法
+     *
+     * @param userId         发送图片的user的Id
+     * @param userPassword   user的密码
+     * @param localImagePath 本地需要上传图片的信息的路径
+     * @param ImageName 用户想要指定的上传图片的名字
+     * @return true 如果上传成功, 否则 false
+     */
+    public static boolean upLoadFilesToServer(int userId, String userPassword, String localImagePath,String ImageName){
+        String targetPath = userUploadImage(userId, userPassword, localImagePath, ImageName);
+        return uploadFile(localImagePath, targetPath);
+    }
+
+
+
+    /**
+     * 用户根据图片名称查询图片Id的方法
+     * @param imageName 用户想要指定的上传图片的名字
+     * @return String，所有查询到的图片的id用“,”分割
+     */
+    public static String userSearchByName(String imageName) {
+        try {
+            // 构建请求URL
+            URL url = new URL(SERVER_URL + "?imageName=" + imageName);
+
+            // 打开连接
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+
+            // 获取响应
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                // 读取响应数据
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+                reader.close();
+
+                // 返回响应
+                return response.toString();
+            } else {
+                System.out.println("Server returned error code: " + responseCode);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -285,8 +332,11 @@ public class FileClient {
 //        registerUser("s", "000000");
 //        userUploadImage(1, "0", "C:\\Users\\admin\\Desktop\\1.png");
 //        userUploadImage(1,"sensei", "C:\\Users\\admin\\Desktop\\1.png");
-        System.out.println("User upload image should be stored at: "+ userUploadImage(1,"sensei", "C:\\Users\\admin\\Desktop\\2.png", "Hina"));
-
+//        System.out.println("User upload image should be stored at: "+ userUploadImage(1,"sensei", "C:\\Users\\admin\\Desktop\\2.png", "Hina"));
+//        uploadFile("C:\\Users\\admin\\Desktop\\2.png","src/main/java/com/example/network/Server/Images/5.png");
+//
+//        upLoadFilesToServer(1, "sensei", "C:\\\\Users\\\\admin\\\\Desktop\\\\2.png", "Hina为师的大可爱！！！！！" );
+        userSearchByName("Hina");
     }
 
 

@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
@@ -23,7 +24,8 @@ public class SimpleHttpServer {
         server.createContext("/upload", new FileUploadHandler());
         server.createContext("/download", new DownloadHandler());
         server.createContext("/register", new RegisterHandler());
-        server.createContext("/userUploadImage", new UserUploadImageHandler()); // 新增的处理程序
+        server.createContext("/userUploadImage", new UserUploadImageHandler());
+        server.createContext("/userSearchByName", new UserSearchByNameHandler());
         server.setExecutor(null); // creates a default executor
         server.start();
         System.out.println("Server started on port " + PORT);
@@ -238,6 +240,33 @@ public class SimpleHttpServer {
                 }
             } else {
                 exchange.sendResponseHeaders(405, -1); // 405 Method Not Allowed
+            }
+        }
+    }
+
+
+
+
+    //用户根据UserName查询一个写着所有的相同name的image信息的id的接收器
+    static class UserSearchByNameHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("GET".equals(exchange.getRequestMethod())) {
+                String imageName = exchange.getRequestURI().getQuery().split("=")[1]; // 获取查询参数中的图片名称
+                try {
+                    List<Integer> imageIds = DatabaseUtil.findImagesByName(imageName); // 查询图片 ID
+                    String response = String.join(",", imageIds.stream().map(String::valueOf).toArray(String[]::new)); // 将图片 ID 转换为逗号分隔的字符串
+                    exchange.sendResponseHeaders(200, response.getBytes().length);
+                    OutputStream outputStream = exchange.getResponseBody();
+                    outputStream.write(response.getBytes());
+                    outputStream.flush();
+                    outputStream.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1); // Internal Server Error
+                }
+            } else {
+                exchange.sendResponseHeaders(405, -1); // Method Not Allowed
             }
         }
     }

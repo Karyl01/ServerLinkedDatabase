@@ -1,6 +1,8 @@
 package org.example.Network;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DatabaseUtil {
     private static final String URL = "jdbc:mysql://localhost:3306/myDatabase";
@@ -239,8 +241,6 @@ public class DatabaseUtil {
     }
 
 
-
-
     /**
      * Checks if the Users table contains a row with the given UserId and UserPassword.
      *
@@ -358,6 +358,42 @@ public class DatabaseUtil {
 
 
 
+    /**
+     * Finds and returns the IDs of all images with the given name.
+     *
+     * @param name the name of the images to find
+     * @return a list of image IDs with the given name
+     * @throws SQLException if a database access error occurs
+     */
+    public static List<Integer> findImagesByName(String name) throws SQLException {
+        List<Integer> imageIds = new ArrayList<>();
+        String query = "SELECT ImageId FROM Images WHERE ImageName = ?";
+
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, name);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    int imageId = rs.getInt("ImageId");
+                    imageIds.add(imageId);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw e;
+        }
+
+        return imageIds;
+    }
+
+
+
+
+
+
+
+
 
 
 
@@ -368,12 +404,18 @@ public class DatabaseUtil {
 
 
     public static void main(String[] args) throws SQLException {
-        System.out.println("Database linked: "+isDatabaseConnected());
+//        System.out.println("Database linked: "+isDatabaseConnected());
 //        initDatabase();
-        System.out.println("if successfully create a user: "+  insertUser("sensei", "sensei"));
+//        System.out.println("if successfully create a user: "+  insertUser("sensei", "sensei"));
 //        System.out.println("User exist: "+userExists("sensei", "sensei"));
-        String result = sendUserImage(1, "sensei", "exampleImage", 12345, "jpg");
-        System.out.println("Image sent Path: " + result);
+//        String result = sendUserImage(1, "sensei", "exampleImage", 12345, "jpg");
+//        System.out.println("Image sent Path: " + result);
+
+        List<Integer> resultInts = findImagesByName("exampleImage");
+        for (int i = 0; i < resultInts.size(); i++) {
+            System.out.print(resultInts.get(i)+" ");
+        }
+
 
     }
 
