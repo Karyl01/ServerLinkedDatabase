@@ -19,6 +19,8 @@ import java.util.HashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import static org.example.Network.DatabaseUtil.userExists;
+
 public class SimpleHttpServer {
     private static final int PORT = 8080;
     public static void main(String[] args) throws IOException {
@@ -30,6 +32,7 @@ public class SimpleHttpServer {
         server.createContext("/userSearchByName", new UserSearchByNameHandler());
         server.createContext("/downloadSingle", new SingleFileDownloadHandler());
         server.createContext("/testConnection", new ConnectionTestHandler());
+        server.createContext("/userExists", new UserExistsHandler());
         server.setExecutor(null); // creates a default executor
         server.start();
         System.out.println("Server started on port " + PORT);
@@ -96,9 +99,9 @@ public class SimpleHttpServer {
                     exchange.sendResponseHeaders(400, response.getBytes().length);
                 } else {
                     try {
-                        boolean isInserted = DatabaseUtil.insertUser(userName, userPassword);
-                        if (isInserted) {
-                            response = "User registered successfully.";
+                        int userId = DatabaseUtil.insertUser(userName, userPassword);
+                        if (userId > 0) {
+                            response = String.valueOf(userId);
                             exchange.sendResponseHeaders(200, response.getBytes().length);
                         } else {
                             response = "User registration failed.";
@@ -133,6 +136,7 @@ public class SimpleHttpServer {
         }
     }
 
+
     private static Map<String, String> queryToMap(String query) {
         Map<String, String> result = new HashMap<>();
         if (query == null) {
@@ -148,6 +152,10 @@ public class SimpleHttpServer {
         }
         return result;
     }
+
+
+
+
 
 
 
@@ -312,7 +320,7 @@ public class SimpleHttpServer {
         }
     }
 
-
+    //测试链接服务器是否成功的方法
     static class ConnectionTestHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -325,6 +333,60 @@ public class SimpleHttpServer {
             } else {
                 exchange.sendResponseHeaders(405, -1); // Method Not Allowed
             }
+        }
+    }
+
+
+    //测试用户是否存在的服务类
+    static class UserExistsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("POST".equals(exchange.getRequestMethod())) {
+                // Read request body
+                InputStream is = exchange.getRequestBody();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is, "utf-8"));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
+                }
+                is.close();
+
+                // Parse form data
+                Map<String, String> params = parseFormData(sb.toString());
+                int userId = Integer.parseInt(params.get("userId"));
+                String username = params.get("username");
+
+                // Check if user exists
+                boolean userExists = false;
+                try {
+                    userExists = userExists(userId, username);
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+
+                // Send response to client
+                String response = String.valueOf(userExists);
+                exchange.sendResponseHeaders(200, response.getBytes().length);
+                OutputStream os = exchange.getResponseBody();
+                os.write(response.getBytes());
+                os.close();
+            } else {
+                exchange.sendResponseHeaders(405, -1); // Method Not Allowed
+            }
+        }
+
+        private Map<String, String> parseFormData(String formData) {
+            Map<String, String> result = new HashMap<>();
+            for (String param : formData.split("&")) {
+                String[] entry = param.split("=");
+                if (entry.length > 1) {
+                    result.put(entry[0], entry[1]);
+                } else {
+                    result.put(entry[0], "");
+                }
+            }
+            return result;
         }
     }
 

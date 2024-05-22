@@ -16,7 +16,7 @@ import java.io.InputStream;
 
 public class FileClient {
 
-    private static final String SERVER_URL = "https://b791-2001-da8-201d-1102-1dd3-a1b7-e709-cae7.ngrok-free.app";
+    private static final String SERVER_URL = "https://ewe-welcomed-leech.ngrok-free.app";
 
 
 
@@ -69,14 +69,17 @@ public class FileClient {
     }
 
 
+
+
+
     /**
      * 发送userName和userPassword给服务器用来注册用户
      *
      * @param userName 注册用户名
      * @param userPassword 注册用户的密码
-     * @return true 如果注册用户成功则返回true, 否则 false
+     * @return 用户的ID, 如果注册用户失败则返回-1
      */
-    public static boolean registerUser(String userName, String userPassword) {
+    public static int registerUser(String userName, String userPassword) {
         String targetUrl = SERVER_URL + "/register";
 
         try {
@@ -105,17 +108,20 @@ public class FileClient {
             // 获取响应
             int responseCode = httpConn.getResponseCode();
             if (responseCode == HttpURLConnection.HTTP_OK) {
-                System.out.println("User registered successfully.");
-                return true;
+                BufferedReader in = new BufferedReader(new InputStreamReader(httpConn.getInputStream()));
+                String response = in.readLine();
+                in.close();
+                return Integer.parseInt(response); // 返回用户ID
             } else {
                 System.out.println("Failed to register user. Server responded with: " + responseCode);
-                return false;
+                return -1;
             }
-        } catch (IOException e) {
+        } catch (IOException | NumberFormatException e) {
             e.printStackTrace();
-            return false;
+            return -1;
         }
     }
+
 
 
 
@@ -383,6 +389,52 @@ public class FileClient {
 
 
 
+    /**
+     * 测试输入的用户id和password在数据库中有没有对应的数据
+     *
+     * @return true 如果连接成功, 否则 false
+     */
+    public static boolean userExists(int userId, String username) {
+        try {
+            String requestURL = SERVER_URL + "/userExists"; // 修改成服务器的URL
+
+            // Create URL connection
+            URL url = new URL(requestURL);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setDoOutput(true);
+
+            // Write request body
+            String requestBody = "userId=" + userId + "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
+            OutputStream os = conn.getOutputStream();
+            os.write(requestBody.getBytes());
+            os.flush();
+            os.close();
+
+            // Get response
+            int responseCode = conn.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                InputStream inputStream = conn.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                String response = reader.readLine();
+                reader.close();
+                return Boolean.parseBoolean(response);
+            } else {
+                // Handle error
+                return false;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+
+
+
+
+
+
 
 
 
@@ -427,8 +479,11 @@ public class FileClient {
 //        downloadSingleFile(downloadText, "src/main/java/org/example/Network/client");
 //        downloadAccordingImageName("Hina", "src/main/java/org/example/Network/client");
 
-        System.out.println(testConnection());
+        System.out.println("Database connection: " + testConnection());
+//        System.out.println("User exists: "+userExists(1, "ensei"));
+        System.out.println("newly registered UserId: "+registerUser("blackSuit", "blackSuit"));
     }
+
 
 
 

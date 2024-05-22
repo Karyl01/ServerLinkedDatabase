@@ -1,5 +1,8 @@
 package org.example.Network;
 
+import java.io.IOException;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -8,6 +11,7 @@ public class DatabaseUtil {
     private static final String URL = "jdbc:mysql://localhost:3306/myDatabase";
     private static final String USER = "root";
     private static final String PASSWORD = "000000";
+    private static final String IMAGE_DIR = "src/main/java/com/example/network/Server/Images";//保存所有图片文件的文件夹
 
     /**
      * Executes the given SQL statement.
@@ -129,8 +133,11 @@ public class DatabaseUtil {
             conn = DriverManager.getConnection(URL, USER, PASSWORD);
             deleteAllTables(conn);
             createTables(conn);
+            deleteAllFilesInDirectory(IMAGE_DIR);
         } catch (SQLException e) {
             e.printStackTrace();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         } finally {
             if (conn != null) {
                 try {
@@ -139,6 +146,29 @@ public class DatabaseUtil {
                     e.printStackTrace();
                 }
             }
+        }
+    }
+
+    //删除图片文件夹中所有文件的私有方法
+    private static void deleteAllFilesInDirectory(String directoryPath) throws IOException {
+        Path dir = Paths.get(directoryPath);
+        if (Files.exists(dir) && Files.isDirectory(dir)) {
+            Files.walkFileTree(dir, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Files.delete(file);
+                    return FileVisitResult.CONTINUE;
+                }
+                @Override
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    if (exc == null) {
+                        Files.delete(dir);
+                        return FileVisitResult.CONTINUE;
+                    } else {
+                        throw exc;
+                    }
+                }
+            });
         }
     }
 
@@ -196,10 +226,10 @@ public class DatabaseUtil {
      *
      * @param userName     the username to be inserted
      * @param userPassword the user password to be inserted
-     * @return  if successfully create a User in users
+     * @return  int if successfully create a User in users and return the UserId of the new created user
      * @throws SQLException if a database access error occurs
      */
-    public static boolean insertUser(String userName, String userPassword) throws SQLException {
+    public static int insertUser(String userName, String userPassword) throws SQLException {
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
@@ -217,7 +247,7 @@ public class DatabaseUtil {
             int affectedRows = pstmt.executeUpdate();
 
             if (affectedRows == 0) {
-                return false; // Inserting user failed, no rows affected
+                return -1; // Inserting user failed, no rows affected
             }
 
             // Get auto-generated UserId
@@ -225,9 +255,9 @@ public class DatabaseUtil {
             if (rs.next()) {
                 int userId = rs.getInt(1); // Get the auto-generated UserId
                 System.out.println("User inserted successfully with UserId: " + userId);
-                return true;
+                return userId;
             } else {
-                return false; // Inserting user failed, no UserId obtained
+                return -1; // Inserting user failed, no UserId obtained
             }
         } catch (SQLException e) {
             e.printStackTrace();
