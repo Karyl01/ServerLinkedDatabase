@@ -6,7 +6,7 @@ import java.io.*;
 public class AudioRecorder {
 
     // 音频文件保存路径
-    private static final String FILE_PATH = "recorded_audio.wav";
+    private static final String FILE_PATH = "C:\\Users\\admin\\Desktop\\ServerLinkedDatabase\\src\\main\\java\\org\\example\\Network\\client\\recorded_audio.wav";
 
     public static void main(String[] args) {
         // 创建音频格式
