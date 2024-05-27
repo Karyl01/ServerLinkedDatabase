@@ -33,6 +33,8 @@ public class SimpleHttpServer {
         server.createContext("/downloadSingle", new SingleFileDownloadHandler());
         server.createContext("/testConnection", new ConnectionTestHandler());
         server.createContext("/userExists", new UserExistsHandler());
+        server.createContext("/getAllImagesInfo", new GetAllImagesHandler());
+        server.createContext("/getImagePathAndType", new GetImagePathAndTypeHandler());
         server.setExecutor(null); // creates a default executor
         server.start();
         System.out.println("Server started on port " + PORT);
@@ -230,8 +232,15 @@ public class SimpleHttpServer {
                 }
 
                 if (serverFilePath != null) {
+                    // 创建指定路径的文件
+                    File file = new File(serverFilePath);
+                    if (!file.exists()) {
+                        file.getParentFile().mkdirs(); // 创建目录及其父目录
+                        file.createNewFile(); // 创建文件
+                    }
+
                     try (InputStream is = exchange.getRequestBody();
-                         FileOutputStream fos = new FileOutputStream(serverFilePath)) {
+                         FileOutputStream fos = new FileOutputStream(file)) {
                         byte[] buffer = new byte[4096];
                         int bytesRead;
                         while ((bytesRead = is.read(buffer)) != -1) {
@@ -255,6 +264,7 @@ public class SimpleHttpServer {
             }
         }
     }
+
 
 
 
@@ -319,6 +329,7 @@ public class SimpleHttpServer {
             }
         }
     }
+
 
     //测试链接服务器是否成功的方法
     static class ConnectionTestHandler implements HttpHandler {
@@ -389,6 +400,78 @@ public class SimpleHttpServer {
             return result;
         }
     }
+
+
+    // 获取所有图片信息的服务器端处理器
+    static class GetAllImagesHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("GET".equals(exchange.getRequestMethod())) {
+                try {
+                    String response = DatabaseUtil.getAllImagesInfo();
+                    exchange.sendResponseHeaders(200, response.getBytes().length);
+                    OutputStream os = exchange.getResponseBody();
+                    os.write(response.getBytes());
+                    os.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1); // Internal Server Error
+                }
+            } else {
+                exchange.sendResponseHeaders(405, -1); // Method Not Allowed
+            }
+        }
+    }
+
+
+
+
+
+
+
+    static class GetImagePathAndTypeHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("GET".equals(exchange.getRequestMethod())) {
+                String query = exchange.getRequestURI().getQuery();
+                if (query == null || !query.startsWith("imageId=")) {
+                    exchange.sendResponseHeaders(400, -1); // Bad Request
+                    return;
+                }
+
+                String imageIdParam = URLDecoder.decode(query.substring(8), StandardCharsets.UTF_8);
+                int imageId;
+                try {
+                    imageId = Integer.parseInt(imageIdParam);
+                } catch (NumberFormatException e) {
+                    exchange.sendResponseHeaders(400, -1); // Bad Request
+                    return;
+                }
+
+                try {
+                    String result = DatabaseUtil.getImagePathAndTypeById(imageId);
+                    if (result != null) {
+                        exchange.sendResponseHeaders(200, result.getBytes().length);
+                        try (OutputStream os = exchange.getResponseBody()) {
+                            os.write(result.getBytes());
+                        }
+                    } else {
+                        exchange.sendResponseHeaders(404, -1); // Not Found
+                    }
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1); // Internal Server Error
+                }
+            } else {
+                exchange.sendResponseHeaders(405, -1); // Method Not Allowed
+            }
+        }
+    }
+
+
+
+
+
 
 
 

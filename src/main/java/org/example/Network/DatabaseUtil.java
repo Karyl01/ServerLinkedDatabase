@@ -418,6 +418,68 @@ public class DatabaseUtil {
     }
 
 
+    /**
+     * 按照"ImageId ImageName"的格式输出所有的Image信息的方法，中间用逗号链接
+     *
+     * @return a string containing all image information
+     * @throws SQLException if a database access error occurs
+     */
+    public static String getAllImagesInfo() throws SQLException {
+        StringBuilder imageInfo = new StringBuilder();
+        String query = "SELECT ImageId, ImageName FROM Images";
+
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
+
+            while (rs.next()) {
+                int imageId = rs.getInt("ImageId");
+                String imageName = rs.getString("ImageName");
+                if (imageInfo.length() > 0) {
+                    imageInfo.append(","); // Add comma to separate entries
+                }
+                imageInfo.append(imageId).append(" ").append(imageName);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw e;
+        }
+
+        return imageInfo.toString();
+    }
+
+
+
+
+    /**
+     * 根据ImageId属性返回"ImagePath ImageType"的方法
+     *
+     * @param imageId
+     * @return imagePath属性
+     * @throws SQLException 返回错误信息如果在数据库中没有查找到的话直接返回null
+     */
+    public static String getImagePathAndTypeById(int imageId) throws SQLException {
+        String result = null;
+        String query = "SELECT ImagePath, ImageType FROM Images WHERE ImageId = ?";
+
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, imageId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    String imagePath = rs.getString("ImagePath");
+                    String imageType = rs.getString("ImageType");
+                    result = imagePath + " " + imageType;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw e;
+        }
+
+        return result;
+    }
 
 
 
@@ -442,11 +504,14 @@ public class DatabaseUtil {
 //        String result = sendUserImage(1, "sensei", "exampleImage", 12345, "jpg");
 //        System.out.println("Image sent Path: " + result);
 
-        List<String> resultInts = findImagesByName("exampleImage");
-        for (int i = 0; i < resultInts.size(); i++) {
-            System.out.print(resultInts.get(i)+" ");
-        }
+//        List<String> resultInts = findImagesByName("exampleImage");
+//        for (int i = 0; i < resultInts.size(); i++) {
+//            System.out.print(resultInts.get(i)+" ");
+//        }
 
+//        System.out.println(getImagePathAndTypeById(1));
+
+        initDatabase();
 
     }
 

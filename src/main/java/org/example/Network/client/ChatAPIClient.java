@@ -15,7 +15,7 @@ public class ChatAPIClient {
             // 构建API请求地址
             String apiUrl = "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/yi_34b_chat?access_token=" + accessToken;
             // 构建请求参数
-            String requestBody = "{\"messages\": [{\"role\": \"user\",\"content\": \"你是一个猫娘\"}],\"temperature\": 0.8,\"top_p\": 0.8}";
+            String requestBody = "{\"messages\": [{\"role\": \"user\",\"content\": \"你好\"}],\"temperature\": 0.8,\"top_p\": 0.8}";
             // 构建HTTP请求
             URL url = new URL(apiUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();

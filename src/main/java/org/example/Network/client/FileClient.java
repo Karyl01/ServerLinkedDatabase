@@ -276,8 +276,8 @@ public class FileClient {
      */
     public static String userSearchByName(String imageName) {
         try {
-            // 构建请求URL
-            URL url = new URL(SERVER_URL + "/userSearchByName?imageName=" + imageName);
+            // 构建请求URL，并对图片名称进行URL编码
+            URL url = new URL(SERVER_URL + "/userSearchByName?imageName=" + URLEncoder.encode(imageName, StandardCharsets.UTF_8));
 
             // 打开连接
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -306,15 +306,17 @@ public class FileClient {
         return null;
     }
 
+
+
+
     /**
-     * 下载单个文件并解压缩到指定目录
+     * 下载单个文件并放到指定目录
      *
-     * @param filePath     服务器上的文件路径,注意！！！这里的路径是从src开始的相对于项目的路径写死了，不能用其他路径
-     * @param downloadDir   本地保存路径
+     * @param filePath     服务器上的文件路径
+     * @param downloadDir  本地保存路径
      * @return true 如果下载成功, 否则 false
      */
     public static boolean downloadSingleFile(String filePath, String downloadDir) {
-        filePath = "C:/Users/USER/Desktop/ServerLinkedDatabase/"+filePath;
         String fileURL = SERVER_URL + "/downloadSingle?file=" + URLEncoder.encode(filePath, StandardCharsets.UTF_8);
 
         try {
@@ -323,6 +325,7 @@ public class FileClient {
             int responseCode = httpConn.getResponseCode();
 
             if (responseCode == HttpURLConnection.HTTP_OK) {
+                // 确定文件在本地保存的路径
                 Path outputFile = Paths.get(downloadDir, Paths.get(filePath).getFileName().toString());
                 try (InputStream inputStream = httpConn.getInputStream();
                      FileOutputStream outputStream = new FileOutputStream(outputFile.toFile())) {
@@ -333,7 +336,7 @@ public class FileClient {
                         outputStream.write(buffer, 0, bytesRead);
                     }
                 }
-                System.out.println("Success download file to local dir path: "+ downloadDir);
+                System.out.println("Success download file to local dir path: " + downloadDir);
                 return true;
             } else {
                 System.out.println("Failed to download file. Server responded with: " + responseCode);
@@ -349,7 +352,6 @@ public class FileClient {
 
 
 
-
     /**
      * 根据对应的用户给定的文件名称ImageName不是文件的文件名下载所有同名文件到指定的本地保存文件夹中
      *
@@ -359,8 +361,9 @@ public class FileClient {
      */
     public static void downloadAccordingImageName(String imageName, String downloadDir){
         String text = userSearchByName(imageName);
-        String[] downLoadPaths = text.split(" ");
+        String[] downLoadPaths = text.split(",");
         for (int i = 0; i < downLoadPaths.length; i++) {
+            System.out.println("要下载的文件地址是："+ downLoadPaths[i]);
             downloadSingleFile(downLoadPaths[i], downloadDir);
         }
     }
@@ -391,7 +394,8 @@ public class FileClient {
 
     /**
      * 测试输入的用户id和password在数据库中有没有对应的数据
-     *
+     * @param userId: 用户返回的id
+     * @param username: 这里使用的是用户的userPassword，变量名写错了不想改了
      * @return true 如果连接成功, 否则 false
      */
     public static boolean userExists(int userId, String username) {
@@ -434,8 +438,110 @@ public class FileClient {
 
 
 
+    /**
+     * 请求服务器上的所有图片信息
+     *
+     * @return 包含所有图片信息的字符串，如果请求失败则返回空字符串
+     */
+    public static String getAllImagesInfo() {
+        String targetUrl = SERVER_URL + "/getAllImagesInfo";
+
+        try {
+            URL url = new URL(targetUrl);
+            HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+            httpConn.setRequestMethod("GET");
+
+            int responseCode = httpConn.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(httpConn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+
+                in.close();
+                return response.toString();
+            } else {
+                System.out.println("Failed to get images info. Server responded with: " + responseCode);
+                return "";
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
 
 
+
+
+    /**
+     * 根据ImageId获取图片的路径和类型
+     *
+     * @param imageId 要查询的图片ID
+     * @return 包含图片路径和类型的字符串，格式为 "ImagePath: imagePath, ImageType: imageType"，如果查询失败则返回空字符串
+     */
+    private static String getImagePathAndType(int imageId) {
+        String targetUrl = SERVER_URL + "/getImagePathAndType";
+
+        try {
+            // 构建请求URL和参数
+            URL url = new URL(targetUrl + "?imageId=" + URLEncoder.encode(String.valueOf(imageId), StandardCharsets.UTF_8));
+
+            // 打开连接
+            HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+            httpConn.setRequestMethod("GET");
+
+            // 获取响应
+            int responseCode = httpConn.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(httpConn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+
+                while ((line = in.readLine()) != null) {
+                    response.append(line);
+                }
+
+                in.close();
+                return response.toString();
+            } else {
+                System.out.println("Failed to get image path and type. Server responded with: " + responseCode);
+                return "";
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /**
+     * 输入一个代表服务器我需要下载的文件的ImageId下载对应的文件
+     *
+     *  @param ImageId 想下载的文件名
+     *  @param downloadDir   本地保存路径
+     *  @return 在给定的downloadDir下载对应imageId的文件
+     */
+    public static boolean downloadAccordingImageId(String ImageId, String downloadDir){
+        String ImagePathAndImageType = getImagePathAndType(Integer.parseInt(ImageId));
+        String[] ImagePathDivided = ImagePathAndImageType.split(" ");
+        System.out.println(ImagePathDivided[0]);
+        return downloadSingleFile(ImagePathDivided[0], downloadDir);
+    }
 
 
 
@@ -479,10 +585,43 @@ public class FileClient {
 //        downloadSingleFile(downloadText, "src/main/java/org/example/Network/client");
 //        downloadAccordingImageName("Hina", "src/main/java/org/example/Network/client");
 
-        System.out.println("Database connection: " + testConnection());
+//        System.out.println("Database connection: " + testConnection());
 //        System.out.println("User exists: "+userExists(1, "ensei"));
-        System.out.println("newly registered UserId: "+registerUser("blackSuit", "blackSuit"));
+//        System.out.println("newly registered UserId: "+registerUser("blackSuit", "blackSuit"));
+//        System.out.println(getAllImagesInfo());
+        //upLoadFilesToServer(1, "sensei", "C:\\Users\\admin\\Desktop\\n.png", "若藻" );
+//        downloadAccordingImageId("8", "C:\\Users\\admin\\Desktop");
+//        downloadAccordingImageName("", "C:\\\\Users\\\\admin\\\\Desktop");
+
+
+        /*
+        * 第二次测试所有已经存在的需要放在gui中使用的代码，注释的是已经测试完成的方法可以正常使用，请保证服务器结构正确
+        *  */
+
+//        System.out.println(registerUser("sensei", "sensei"));
+//        System.out.println(userExists(1, "sensei"));
+//        upLoadFilesToServer(1, "sensei", "C:\\Users\\admin\\Desktop\\N.png", "若藻大狐狸");
+//        System.out.println(testConnection());
+//        System.out.println("测试下载方法下载到桌面端：");
+//        downloadAccordingImageName("若藻大狐狸", "C:\\Users\\admin\\Desktop");
+//        System.out.println(userSearchByName("若藻大狐狸"));
+//        downloadAccordingImageName("若藻大狐狸", "C:\\Users\\admin\\Desktop");
+//        downloadAccordingImageId("1", "C:\\Users\\admin\\Desktop");
+//        System.out.println(registerUser("sensei", "空崎日奈是我老婆"));
+//        System.out.println(userExists(3, "sensei"));
+//        System.out.println(userExists(3, "空崎日奈是我老婆"));
+//        System.out.println(getAllImagesInfo());
+        //上面测试的代码包括重置数据库，注册用户，测试用户是否存在，测试用户上传图片,
+        //测试用户根据Imagename下载图片,用户根据ImageId下载指定图片,用户返回所有图片信息的"id name"一个字符串中间用逗号隔开
+
+
+
+
+
+
+
     }
+
 
 
 
