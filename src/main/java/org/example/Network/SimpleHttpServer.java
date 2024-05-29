@@ -35,6 +35,7 @@ public class SimpleHttpServer {
         server.createContext("/userExists", new UserExistsHandler());
         server.createContext("/getAllImagesInfo", new GetAllImagesHandler());
         server.createContext("/getImagePathAndType", new GetImagePathAndTypeHandler());
+        server.createContext("/receiveChatMessage", new ChatMessageHandler());
         server.setExecutor(null); // creates a default executor
         server.start();
         System.out.println("Server started on port " + PORT);
@@ -465,6 +466,54 @@ public class SimpleHttpServer {
             } else {
                 exchange.sendResponseHeaders(405, -1); // Method Not Allowed
             }
+        }
+    }
+
+
+
+
+
+
+
+    //接收客户端的chat方法发送过来的string并且调用sovits模型进行语音生成，语音生成的固定位置是桌面的output.wav
+    static class ChatMessageHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("POST".equals(exchange.getRequestMethod())) {
+                try {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(exchange.getRequestBody()));
+                    String requestData = reader.readLine();
+
+                    Map<String, String> params = parseFormData(requestData);
+                    String content = URLDecoder.decode(params.get("content"), StandardCharsets.UTF_8);
+
+                    handleChatMessage(content);
+
+                    exchange.sendResponseHeaders(200, -1); // OK
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    exchange.sendResponseHeaders(500, -1); // Internal Server Error
+                }
+            } else {
+                exchange.sendResponseHeaders(405, -1); // Method Not Allowed
+            }
+        }
+
+        private void handleChatMessage(String content) {
+            AudioUtil.sendApiRequest(AudioUtil.API_URL, content, "zh", AudioUtil.OUTPUT_PATH);
+        }
+
+        private Map<String, String> parseFormData(String formData) {
+            Map<String, String> result = new HashMap<>();
+            for (String param : formData.split("&")) {
+                String[] entry = param.split("=");
+                if (entry.length > 1) {
+                    result.put(entry[0], entry[1]);
+                } else {
+                    result.put(entry[0], "");
+                }
+            }
+            return result;
         }
     }
 
